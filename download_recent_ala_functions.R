@@ -1,8 +1,11 @@
-library(sf)
-library(galah)
-library(lubridate)
+suppressPackageStartupMessages(library(sf))
+suppressPackageStartupMessages(library(galah))
+galah_config(email = "wcornwell@gmail.com")
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(APCalign))
+suppressPackageStartupMessages(library(tidyverse,warn.conflicts = FALSE))
 
-query <- function(taxon="Plantae", years=2024) {
+query <- function(taxon="Plantae", cut_of_year=2024) {
   identify <- galah::galah_call() |>
     galah::galah_identify(taxon)
   
@@ -10,7 +13,7 @@ query <- function(taxon="Plantae", years=2024) {
     spatiallyValid == TRUE,
     species != "",
     decimalLatitude != "",
-    year == years,
+    year >= cut_of_year,
     basisOfRecord == c("HUMAN_OBSERVATION", "PRESERVED_SPECIMEN")
   )
   
@@ -42,7 +45,7 @@ query <- function(taxon="Plantae", years=2024) {
 
 
 # Define the function with simplification
-download_observations_bbox <- function(kml_file_path, start_date) {
+download_observations_bbox <- function(kml_file_path, start_year) {
   area <- sf::st_read(kml_file_path, quiet = TRUE)
   bbox <- sf::st_bbox(area)
   wkt_bbox <- paste(
@@ -65,10 +68,11 @@ download_observations_bbox <- function(kml_file_path, start_date) {
   )
   
   
-  download <- query() |>
+  download <- query(cut_of_year=start_year) |>
     galah_geolocate(wkt = wkt_bbox) |>
     atlas_occurrences()
   
+  #remove uncertain observations
   download %>%
     dplyr::filter(is.na(coordinateUncertaintyInMeters) |
                     coordinateUncertaintyInMeters <= 1000) ->out
@@ -77,31 +81,18 @@ download_observations_bbox <- function(kml_file_path, start_date) {
   return(out)
 }
 
-geo_filter <- function(kalb, kml) {
-  kalb <- filter(kalb, !is.na(decimalLatitude))
+geo_filter <- function(ala_data, kml) {
+  ala_data <- filter(ala_data, !is.na(decimalLatitude))
   df_sf <-
     st_as_sf(
-      kalb,
+      ala_data,
       coords = c("decimalLongitude", "decimalLatitude"),
       crs = st_crs(kml)
     )
-  kalb$inside_kml <- st_within(df_sf, kml, sparse = FALSE)
-  kalb <- filter(kalb, inside_kml)
-  return(kalb)
+  ala_data$inside_kml <- st_within(df_sf, kml, sparse = FALSE)
+  ala_data_inside <- filter(ala_data, inside_kml)
+  return(ala_data_inside)
 }
 
 
-royal_kml <- st_read("royal national park.kml")
-royal_obs <- download_observations_bbox("royal national park.kml", dmy("1-10-2024"))
-royal_only_obs <- geo_filter(royal_obs, royal_kml)
 
-
-accepted_new_names <- APCalign::create_taxonomic_update_lookup(unique(royal_only_obs$species))
-alltime_org <- read.csv("royal_alltime_flora.csv")
-alltime <- APCalign::create_taxonomic_update_lookup(unique(alltime_org$accepted_name))
-putative_new_species <- stringr::word(unique(accepted_new_names$accepted_name), 1, 2)
-
-new<-putative_new_species[!putative_new_species %in% alltime$accepted_name & 
-                            !putative_new_species %in% alltime$aligned_name]
-
-z<-native_anywhere_in_australia(new)

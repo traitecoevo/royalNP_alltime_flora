@@ -1,22 +1,25 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+# A dynamic lookup to help curate the “all time” plant species list for Royal National Park, NSW, Australia
+
 Versioned data for the “all time” flora of Royal National Park, NSW,
 Australia. The R script checks the ALA for species that are candidates
 for new discoveries since the list was created and prints out the list
-of those candidates for new discoveries.
+of those candidates for new discoveries. These new discoveries may arise
+from new collections at herbaria or from citizen scientists.
 
 Note that some of these “new” species arise from the different rates of
 taxonomic updates in the different data resources. These need manual
 curation before adding new species to the all-time list.
 
-First load some libraries and helper functions:
+### First load some libraries and helper functions:
 
 ``` r
 source("download_recent_ala_functions.R")
 ```
 
-Then there are a few steps to the process:
+### Then there are a few steps to the process:
 
 1.  Download the 2024 or later data from ALA
 
@@ -35,13 +38,14 @@ royal_kml <- st_read("royal national park.kml")
     ## Geodetic CRS:  WGS 84
 
 ``` r
-royal_obs <- download_observations_bbox("royal national park.kml", start_year = 2024)
+royal_obs <- download_observations_bbox(
+  "royal national park.kml", start_year = 2024)
 ```
 
     ## Request for 2726 occurrences placed in queue
     ## Current queue length: 1
 
-    ## -----
+    ## --
 
     ## Downloading
 
@@ -61,17 +65,12 @@ royal_only_obs <- geo_filter(royal_obs, royal_kml)
     package
 
 ``` r
-resources <- APCalign::load_taxonomic_resources()
+resources <- APCalign::load_taxonomic_resources(quiet = TRUE)
 ```
 
-    ## Loading resources into memory...
-
-    ## ================================================================================================================================================================
-
-    ## ...done
-
 ``` r
-accepted_new_names <- APCalign::create_taxonomic_update_lookup(unique(royal_only_obs$species,resources=resources))
+accepted_new_names <- APCalign::create_taxonomic_update_lookup(
+  unique(royal_only_obs$species, resources = resources, quiet = TRUE))
 ```
 
     ## Loading resources into memory...
@@ -87,30 +86,27 @@ accepted_new_names <- APCalign::create_taxonomic_update_lookup(unique(royal_only
 
 ``` r
 alltime_org <- read.csv("royal_alltime_flora.csv")
-alltime <- APCalign::create_taxonomic_update_lookup(unique(alltime_org$accepted_name),resources=resources)
-```
-
-    ## Checking alignments of 1414 taxa
-
-    ##   -> of these 1309 names have a perfect match to a scientific name in the APC. 
-    ##       Alignments being sought for remaining names.
-
-``` r
-putative_new_species <- stringr::word(unique(accepted_new_names$accepted_name), 1, 2)
+alltime <- APCalign::create_taxonomic_update_lookup(
+  unique(alltime_org$accepted_name), resources = resources, quiet = TRUE)
+putative_new_species <- stringr::word(
+  unique(accepted_new_names$accepted_name), 1, 2)
 ```
 
 3.  figure out new names that appeared in 2024 (or later) that are not
     in the all time list
 
 ``` r
-new_discoveries <- setdiff(putative_new_species, union(alltime$accepted_name, alltime$aligned_name))
+new_discoveries <- setdiff(putative_new_species, 
+                           union(alltime$accepted_name, 
+                                 alltime$aligned_name))
 ```
 
 4.  Compare with native/introduced lookup table (note that this
     considers native anywhere in Australia as native)
 
 ``` r
-nat_lookup <- native_anywhere_in_australia(new_discoveries, resources=resources)
+nat_lookup <- native_anywhere_in_australia(new_discoveries, 
+                                           resources=resources)
 ```
 
 5.  calculate number of 2024 or later observations for the set of

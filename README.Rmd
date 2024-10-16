@@ -66,4 +66,5 @@ royal_only_obs %>%
   print(n = Inf)
 ```
 
+The Royal NP plant species list currently contains 1414 species and this analysis suggests 24 candidates for addition found in 2024.  
  

@@ -150,3 +150,6 @@ royal_only_obs %>%
     ## 22 Verbascum virgatum                        2 introduced            
     ## 23 Veronica arvensis                         1 introduced            
     ## 24 Viburnum odoratissimum                    1 introduced
+
+The Royal NP plant species list currently contains 1414 species and this
+analysis suggests 24 candidates for addition found in 2024.
